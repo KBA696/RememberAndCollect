@@ -138,37 +138,57 @@ public class MainCode : MonoBehaviour
     /// </summary>
     public Slider GameTimer;
 
-    float timeLeft = 60;
-    float timeMax;
-    float timeЗапоминать;
+    /// <summary>
+    /// Cколько прошло времени
+    /// </summary>
+    float muchTimePassed = 60;
+
+    /// <summary>
+    /// Время на игру
+    /// </summary>
+    float timePlay;
+
+    /// <summary>
+    /// Время на запоминание
+    /// </summary>
+    float timeRemember;
 
     [Header("Поля с настройками для своей игры")]
-    public Dropdown dropdown1;
-    public Dropdown dropdown2;
-    public InputField inputField1;
-    public InputField inputField2;
+    /// <summary>
+    /// Комбокс для выбора количества шариков в своей игре
+    /// </summary>
+    public Dropdown SettingsTotalBalls;
 
-    
+    /// <summary>
+    /// Комбокс для выбора количества цветов шариков в своей игре
+    /// </summary>
+    public Dropdown SettingsTotalColors;
 
+    /// <summary>
+    /// Текстовое поле для задания времени на запоминание в своей игре
+    /// </summary>
+    public InputField SettingsTimeRemember;
 
-
-
+    /// <summary>
+    /// Текстовое поле для задания времени на игру в своей игре
+    /// </summary>
+    public InputField SettingsTimePlay;
     #endregion
 
     // Start is called before the first frame update
     void Start()
     {
-        //PlayerPrefs.DeleteAll();//Обнуляю настройки
+        //UnityEngine.PlayerPrefs.DeleteAll();//Обнуляю настройки
 
-        if (!UnityEngine.PlayerPrefs.HasKey("Save"))
-        {
-            listLevels = new SettingsGame();
-        }
-        else
+        //Загружаем из PlayerPrefs сохраненную игру или присваиваем стандартные настройки
+        if (UnityEngine.PlayerPrefs.HasKey("Save"))
         {
             listLevels = JsonUtility.FromJson<SettingsGame>(UnityEngine.PlayerPrefs.GetString("Save"));
         }
-
+        else
+        {
+            listLevels = new SettingsGame();
+        }
 
         //Задаем громкость фоновой музыки скролу из настроек и плэеру
         VolumeBackgroundMusic.value = SourceBackgroundMusic.volume = listLevels.VolumeBackground;
@@ -179,26 +199,29 @@ public class MainCode : MonoBehaviour
         //Задаем громкость кликам
         VolumeEffect.value = listLevels.VolumeEffect;
 
-        PlayCleekdMusic(listLevels.PlayEffect);
+        //Задаем правильную картинку для колонки под клик в настройках
+        IconCleekdMusic(listLevels.PlayEffect);
 
-
-
-
+        //Ищим компонент AudioSource на текущем обьекте
         audioSource = GetComponent<AudioSource>();
 
-        animator = gameObject.GetComponent<Animator>();
+        //Ищим компонент Animator на текущем обьекте
+        animator = GetComponent<Animator>();
+
+        //добовляем в историю что мы открыли главное окно
         actionHistory.Push(0);
 
-
+        //Добовляем кнопки уровней
         for (int i = 0; i < SettingsGame.numberLevels; i++)
         {
-            var instance = Instantiate(PlayerPrefs, ControlForLevels);
+            var createdPlayerPrefs = Instantiate(PlayerPrefs, ControlForLevels);
 
-            instance.name = i.ToString();
-            foreach (Transform child in instance.transform)
+            createdPlayerPrefs.name = i.ToString();
+            foreach (Transform child in createdPlayerPrefs.transform)
             {
                 if (child.name == "Text")
                 {
+                    //Присваиваем текст кнопке который равен её уровню
                     child.GetComponent<Text>().text = (i + 1).ToString();
                 }
             }
@@ -210,46 +233,49 @@ public class MainCode : MonoBehaviour
     void Update()
     {
 #if UNITY_STANDALONE_WIN
-        if (Input.GetKeyDown(KeyCode.Escape)) { Application.Quit(); }     
+        //Выходим из игры в Windows по нажатию Esc 
+        if (Input.GetKeyDown(KeyCode.Escape)) { Application.Quit(); }
 #endif
 
-        //Если произошли изменения в громкости музыки правим и сохраняем в реестр
+        //Отлавливаем изменения в настройках для громкости фоновой музыки и кликов
         var vv = listLevels.VolumeBackground != VolumeBackgroundMusic.value;
         if (vv)
         {
             SourceBackgroundMusic.volume = listLevels.VolumeBackground = VolumeBackgroundMusic.value;
+            //Останавливаем воспроимзведение и меняем картинку если громкость меньше 0.02 либо запускаем фоновую музыку
             if (listLevels.VolumeBackground <= 0.02f) { PlayBackgroundMusic(false); } else { PlayBackgroundMusic(); }
         }
         var bb = listLevels.VolumeEffect != VolumeEffect.value;
         if (bb)
         {
             listLevels.VolumeEffect = VolumeEffect.value;
-            if (listLevels.VolumeEffect <= 0.02f) { PlayCleekdMusic(false); } else { PlayCleekdMusic(); }
+            if (listLevels.VolumeEffect <= 0.02f) { IconCleekdMusic(false); } else { IconCleekdMusic(); }
 
         }
-        if (vv|| bb) { SaveSeting(); }
+        //Сохраняем настройки если произошли изменения
+        if (vv || bb) { SaveSeting(); }
 
-
+        //Задаём значения таймеру сколько осталось времени на запоминание или на игру
         if (parametersGame.ShowTimer)
         {
-            if (parametersGame.StateGame == 0 && timeЗапоминать > 0)
+            if (parametersGame.StateGame == 0 && timeRemember > 0)
             {
-                timeLeft += 1 * Time.deltaTime;
-                if (timeЗапоминать <= timeLeft)
+                muchTimePassed += 1 * Time.deltaTime;
+                if (timeRemember <= muchTimePassed)
                 {
-                    Gecr();
+                    CloseBoard();
                 }
             }
-            else if (parametersGame.StateGame == StateGame.Started && timeMax > 0)
+            else if (parametersGame.StateGame == StateGame.Started && timePlay > 0)
             {
-                timeLeft -= 1 * Time.deltaTime;
-                if (timeLeft <= 0)
+                muchTimePassed -= 1 * Time.deltaTime;
+                if (muchTimePassed <= 0)
                 {
-                    ПодвестиИтог();
+                    GameOwer();
                 }
             }
 
-            GameTimer.value = timeLeft;
+            GameTimer.value = muchTimePassed;
         }
     }
 
@@ -257,7 +283,7 @@ public class MainCode : MonoBehaviour
     /// <summary>
     /// Обучающий раунд(игра)
     /// </summary>
-    public void Обучение() { transitionsBetweenWindows(ActionsGame.TrainingRound); }
+    public void Training() { transitionsBetweenWindows(ActionsGame.TrainingRound); }
 
     /// <summary>
     /// Окно с перечнем простых уровней
@@ -272,12 +298,12 @@ public class MainCode : MonoBehaviour
     /// <summary>
     /// Окно создания своего уровеня
     /// </summary>
-    public void ОкеоСвоиУровни()  { transitionsBetweenWindows(ActionsGame.CreateYourLevel); }
+    public void CreateYourLevel() { transitionsBetweenWindows(ActionsGame.CreateYourLevel); }
 
     /// <summary>
     /// Запустить игру со своими настройками
     /// </summary>
-    public void СвояИгра() { transitionsBetweenWindows(ActionsGame.StartGameYourSettings); }
+    public void MyGame() { transitionsBetweenWindows(ActionsGame.StartGameYourSettings); }
 
     /// <summary>
     /// Переходы между окнами
@@ -287,7 +313,7 @@ public class MainCode : MonoBehaviour
     {
         PlayClick();
 
-        int i = (int)actionsGame;
+        int i = (int)actionsGame;//Присваиваем номер анимации если не совпал ниже в switch исправляем на нужный номер
 
         switch (actionsGame)
         {
@@ -296,420 +322,420 @@ public class MainCode : MonoBehaviour
                 MessageLosing.SetActive(false);
 
                 #region Задаем параметры игре
-                if (parametersGame.свойУровень)
+                if (parametersGame.MyGame)
                 {
-                    if (int.Parse(inputField1.text) > 0 || int.Parse(inputField2.text) > 0)
-                    {
-                        parametersGame.ShowTimer = true;
-                    }
-                    collectSamples(dropdown1.value + 2, dropdown2.value + 2, false, int.Parse(inputField1.text), int.Parse(inputField2.text));
+                    int.TryParse(SettingsTimeRemember.text, out int settingsTimeRemember);
+                    int.TryParse(SettingsTimePlay.text, out int settingsTimePlay);
+
+                    if (settingsTimeRemember > 0 || settingsTimePlay > 0) { parametersGame.ShowTimer = true; }
+
+                    DecomposeBalls(SettingsTotalBalls.value + 2, SettingsTotalColors.value + 2, false, settingsTimeRemember, settingsTimePlay);
                 }
                 else if (parametersGame.ShowTimer)
                 {
-                    switch (parametersGame.уровень + 1)
+                    switch (parametersGame.GameLevel + 1)
                     {
                         case 1:
-                            collectSamples(5, 2, false, 25, 45);
+                            DecomposeBalls(5, 2, false, 25, 45);
                             break;
                         case 2:
-                            collectSamples(6, 2, false, 25, 45);
+                            DecomposeBalls(6, 2, false, 25, 45);
                             break;
                         case 3:
-                            collectSamples(7, 2, false, 25, 45);
+                            DecomposeBalls(7, 2, false, 25, 45);
                             break;
                         case 4:
-                            collectSamples(8, 2, false, 25, 45);
+                            DecomposeBalls(8, 2, false, 25, 45);
                             break;
                         case 5:
-                            collectSamples(5, 3, false, 25, 45);
+                            DecomposeBalls(5, 3, false, 25, 45);
                             break;
                         case 6:
-                            collectSamples(6, 3, false, 25, 45);
+                            DecomposeBalls(6, 3, false, 25, 45);
                             break;
                         case 7:
-                            collectSamples(7, 3, false, 25, 45);
+                            DecomposeBalls(7, 3, false, 25, 45);
                             break;
                         case 8:
-                            collectSamples(8, 3, false, 25, 45);
+                            DecomposeBalls(8, 3, false, 25, 45);
                             break;
                         case 9:
-                            collectSamples(9, 3, false, 25, 45);
+                            DecomposeBalls(9, 3, false, 25, 45);
                             break;
                         case 10:
-                            collectSamples(5, 4, false, 25, 45);
+                            DecomposeBalls(5, 4, false, 25, 45);
                             break;
                         case 11:
-                            collectSamples(6, 4, false, 25, 45);
+                            DecomposeBalls(6, 4, false, 25, 45);
                             break;
                         case 12:
-                            collectSamples(7, 4, false, 25, 45);
+                            DecomposeBalls(7, 4, false, 25, 45);
                             break;
                         case 13:
-                            collectSamples(8, 4, false, 25, 45);
+                            DecomposeBalls(8, 4, false, 25, 45);
                             break;
                         case 14:
-                            collectSamples(9, 4, false, 25, 45);
+                            DecomposeBalls(9, 4, false, 25, 45);
                             break;
                         case 15:
-                            collectSamples(10, 4, false, 25, 45);
+                            DecomposeBalls(10, 4, false, 25, 45);
                             break;
                         case 16:
-                            collectSamples(5, 5, false, 25, 45);
+                            DecomposeBalls(5, 5, false, 25, 45);
                             break;
                         case 17:
-                            collectSamples(6, 5, false, 25, 45);
+                            DecomposeBalls(6, 5, false, 25, 45);
                             break;
                         case 18:
-                            collectSamples(7, 5, false, 25, 45);
+                            DecomposeBalls(7, 5, false, 25, 45);
                             break;
                         case 19:
-                            collectSamples(8, 5, false, 25, 45);
+                            DecomposeBalls(8, 5, false, 25, 45);
                             break;
                         case 20:
-                            collectSamples(9, 5, false, 25, 45);
+                            DecomposeBalls(9, 5, false, 25, 45);
                             break;
                         case 21:
-                            collectSamples(10, 5, false, 25, 45);
+                            DecomposeBalls(10, 5, false, 25, 45);
                             break;
                         case 22:
-                            collectSamples(11, 5, false, 25, 45);
+                            DecomposeBalls(11, 5, false, 25, 45);
                             break;
                         case 23:
-                            collectSamples(5, 6, false, 25, 45);
+                            DecomposeBalls(5, 6, false, 25, 45);
                             break;
                         case 24:
-                            collectSamples(6, 6, false, 25, 45);
+                            DecomposeBalls(6, 6, false, 25, 45);
                             break;
                         case 25:
-                            collectSamples(7, 6, false, 25, 45);
+                            DecomposeBalls(7, 6, false, 25, 45);
                             break;
                         case 26:
-                            collectSamples(8, 6, false, 25, 45);
+                            DecomposeBalls(8, 6, false, 25, 45);
                             break;
                         case 27:
-                            collectSamples(9, 6, false, 25, 45);
+                            DecomposeBalls(9, 6, false, 25, 45);
                             break;
                         case 28:
-                            collectSamples(10, 6, false, 25, 45);
+                            DecomposeBalls(10, 6, false, 25, 45);
                             break;
                         case 29:
-                            collectSamples(11, 6, false, 25, 45);
+                            DecomposeBalls(11, 6, false, 25, 45);
                             break;
                         case 30:
-                            collectSamples(6, 7, false, 25, 45);
+                            DecomposeBalls(6, 7, false, 25, 45);
                             break;
                         case 31:
-                            collectSamples(7, 7, false, 25, 45);
+                            DecomposeBalls(7, 7, false, 25, 45);
                             break;
                         case 32:
-                            collectSamples(8, 7, false, 25, 45);
+                            DecomposeBalls(8, 7, false, 25, 45);
                             break;
                         case 33:
-                            collectSamples(9, 7, false, 25, 45);
+                            DecomposeBalls(9, 7, false, 25, 45);
                             break;
                         case 34:
-                            collectSamples(10, 7, false, 25, 45);
+                            DecomposeBalls(10, 7, false, 25, 45);
                             break;
                         case 35:
-                            collectSamples(11, 7, false, 25, 45);
+                            DecomposeBalls(11, 7, false, 25, 45);
                             break;
                         case 36:
-                            collectSamples(6, 8, false, 25, 45);
+                            DecomposeBalls(6, 8, false, 25, 45);
                             break;
                         case 37:
-                            collectSamples(7, 8, false, 25, 45);
+                            DecomposeBalls(7, 8, false, 25, 45);
                             break;
                         case 38:
-                            collectSamples(8, 8, false, 25, 45);
+                            DecomposeBalls(8, 8, false, 25, 45);
                             break;
                         case 39:
-                            collectSamples(9, 8, false, 25, 45);
+                            DecomposeBalls(9, 8, false, 25, 45);
                             break;
                         case 40:
-                            collectSamples(10, 8, false, 25, 45);
+                            DecomposeBalls(10, 8, false, 25, 45);
                             break;
                         case 41:
-                            collectSamples(11, 8, false, 25, 45);
+                            DecomposeBalls(11, 8, false, 25, 45);
                             break;
                         case 42:
-                            collectSamples(6, 9, false, 25, 45);
+                            DecomposeBalls(6, 9, false, 25, 45);
                             break;
                         case 43:
-                            collectSamples(7, 9, false, 25, 45);
+                            DecomposeBalls(7, 9, false, 25, 45);
                             break;
                         case 44:
-                            collectSamples(8, 9, false, 25, 45);
+                            DecomposeBalls(8, 9, false, 25, 45);
                             break;
                         case 45:
-                            collectSamples(9, 9, false, 25, 45);
+                            DecomposeBalls(9, 9, false, 25, 45);
                             break;
                         case 46:
-                            collectSamples(10, 9, false, 25, 45);
+                            DecomposeBalls(10, 9, false, 25, 45);
                             break;
                         case 47:
-                            collectSamples(11, 9, false, 25, 45);
+                            DecomposeBalls(11, 9, false, 25, 45);
                             break;
                         case 48:
-                            collectSamples(6, 10, false, 25, 45);
+                            DecomposeBalls(6, 10, false, 25, 45);
                             break;
                         case 49:
-                            collectSamples(7, 10, false, 25, 45);
+                            DecomposeBalls(7, 10, false, 25, 45);
                             break;
                         case 50:
-                            collectSamples(8, 10, false, 25, 45);
+                            DecomposeBalls(8, 10, false, 25, 45);
                             break;
                         case 51:
-                            collectSamples(9, 10, false, 25, 45);
+                            DecomposeBalls(9, 10, false, 25, 45);
                             break;
                         case 52:
-                            collectSamples(10, 10, false, 25, 45);
+                            DecomposeBalls(10, 10, false, 25, 45);
                             break;
                         case 53:
-                            collectSamples(11, 10, false, 25, 45);
+                            DecomposeBalls(11, 10, false, 25, 45);
                             break;
                         case 54:
-                            collectSamples(6, 10, false, 25, 45);
+                            DecomposeBalls(6, 10, false, 25, 45);
                             break;
                         case 55:
-                            collectSamples(7, 10, false, 25, 45);
+                            DecomposeBalls(7, 10, false, 25, 45);
                             break;
                         case 56:
-                            collectSamples(8, 10, false, 25, 45);
+                            DecomposeBalls(8, 10, false, 25, 45);
                             break;
                         case 57:
-                            collectSamples(9, 10, false, 25, 45);
+                            DecomposeBalls(9, 10, false, 25, 45);
                             break;
                         case 58:
-                            collectSamples(10, 10, false, 25, 45);
+                            DecomposeBalls(10, 10, false, 25, 45);
                             break;
                         case 59:
-                            collectSamples(11, 10, false, 25, 45);
+                            DecomposeBalls(11, 10, false, 25, 45);
                             break;
                         case 60:
-                            collectSamples(6, 11, false, 25, 45);
+                            DecomposeBalls(6, 11, false, 25, 45);
                             break;
                         case 61:
-                            collectSamples(7, 11, false, 25, 45);
+                            DecomposeBalls(7, 11, false, 25, 45);
                             break;
                         case 62:
-                            collectSamples(8, 11, false, 25, 45);
+                            DecomposeBalls(8, 11, false, 25, 45);
                             break;
                         case 63:
-                            collectSamples(9, 11, false, 25, 45);
+                            DecomposeBalls(9, 11, false, 25, 45);
                             break;
                         case 64:
-                            collectSamples(10, 11, false, 25, 45);
+                            DecomposeBalls(10, 11, false, 25, 45);
                             break;
                         case 65:
-                            collectSamples(11, 11, false, 25, 45);
+                            DecomposeBalls(11, 11, false, 25, 45);
                             break;
                         default:
-                            collectSamples(11, 11, false, 25, 45);
+                            DecomposeBalls(11, 11, false, 25, 45);
                             break;
                     }
-
                 }
                 else
                 {
-                    switch (parametersGame.уровень + 1)
+                    switch (parametersGame.GameLevel + 1)
                     {
                         case 1:
-                            collectSamples(5, 2);
+                            DecomposeBalls(5, 2);
                             break;
                         case 2:
-                            collectSamples(6, 2);
+                            DecomposeBalls(6, 2);
                             break;
                         case 3:
-                            collectSamples(7, 2);
+                            DecomposeBalls(7, 2);
                             break;
                         case 4:
-                            collectSamples(8, 2);
+                            DecomposeBalls(8, 2);
                             break;
                         case 5:
-                            collectSamples(5, 3);
+                            DecomposeBalls(5, 3);
                             break;
                         case 6:
-                            collectSamples(6, 3);
+                            DecomposeBalls(6, 3);
                             break;
                         case 7:
-                            collectSamples(7, 3);
+                            DecomposeBalls(7, 3);
                             break;
                         case 8:
-                            collectSamples(8, 3);
+                            DecomposeBalls(8, 3);
                             break;
                         case 9:
-                            collectSamples(9, 3);
+                            DecomposeBalls(9, 3);
                             break;
                         case 10:
-                            collectSamples(5, 4);
+                            DecomposeBalls(5, 4);
                             break;
                         case 11:
-                            collectSamples(6, 4);
+                            DecomposeBalls(6, 4);
                             break;
                         case 12:
-                            collectSamples(7, 4);
+                            DecomposeBalls(7, 4);
                             break;
                         case 13:
-                            collectSamples(8, 4);
+                            DecomposeBalls(8, 4);
                             break;
                         case 14:
-                            collectSamples(9, 4);
+                            DecomposeBalls(9, 4);
                             break;
                         case 15:
-                            collectSamples(10, 4);
+                            DecomposeBalls(10, 4);
                             break;
                         case 16:
-                            collectSamples(5, 5);
+                            DecomposeBalls(5, 5);
                             break;
                         case 17:
-                            collectSamples(6, 5);
+                            DecomposeBalls(6, 5);
                             break;
                         case 18:
-                            collectSamples(7, 5);
+                            DecomposeBalls(7, 5);
                             break;
                         case 19:
-                            collectSamples(8, 5);
+                            DecomposeBalls(8, 5);
                             break;
                         case 20:
-                            collectSamples(9, 5);
+                            DecomposeBalls(9, 5);
                             break;
                         case 21:
-                            collectSamples(10, 5);
+                            DecomposeBalls(10, 5);
                             break;
                         case 22:
-                            collectSamples(11, 5);
+                            DecomposeBalls(11, 5);
                             break;
                         case 23:
-                            collectSamples(5, 6);
+                            DecomposeBalls(5, 6);
                             break;
                         case 24:
-                            collectSamples(6, 6);
+                            DecomposeBalls(6, 6);
                             break;
                         case 25:
-                            collectSamples(7, 6);
+                            DecomposeBalls(7, 6);
                             break;
                         case 26:
-                            collectSamples(8, 6);
+                            DecomposeBalls(8, 6);
                             break;
                         case 27:
-                            collectSamples(9, 6);
+                            DecomposeBalls(9, 6);
                             break;
                         case 28:
-                            collectSamples(10, 6);
+                            DecomposeBalls(10, 6);
                             break;
                         case 29:
-                            collectSamples(11, 6);
+                            DecomposeBalls(11, 6);
                             break;
                         case 30:
-                            collectSamples(6, 7);
+                            DecomposeBalls(6, 7);
                             break;
                         case 31:
-                            collectSamples(7, 7);
+                            DecomposeBalls(7, 7);
                             break;
                         case 32:
-                            collectSamples(8, 7);
+                            DecomposeBalls(8, 7);
                             break;
                         case 33:
-                            collectSamples(9, 7);
+                            DecomposeBalls(9, 7);
                             break;
                         case 34:
-                            collectSamples(10, 7);
+                            DecomposeBalls(10, 7);
                             break;
                         case 35:
-                            collectSamples(11, 7);
+                            DecomposeBalls(11, 7);
                             break;
                         case 36:
-                            collectSamples(6, 8);
+                            DecomposeBalls(6, 8);
                             break;
                         case 37:
-                            collectSamples(7, 8);
+                            DecomposeBalls(7, 8);
                             break;
                         case 38:
-                            collectSamples(8, 8);
+                            DecomposeBalls(8, 8);
                             break;
                         case 39:
-                            collectSamples(9, 8);
+                            DecomposeBalls(9, 8);
                             break;
                         case 40:
-                            collectSamples(10, 8);
+                            DecomposeBalls(10, 8);
                             break;
                         case 41:
-                            collectSamples(11, 8);
+                            DecomposeBalls(11, 8);
                             break;
                         case 42:
-                            collectSamples(6, 9);
+                            DecomposeBalls(6, 9);
                             break;
                         case 43:
-                            collectSamples(7, 9);
+                            DecomposeBalls(7, 9);
                             break;
                         case 44:
-                            collectSamples(8, 9);
+                            DecomposeBalls(8, 9);
                             break;
                         case 45:
-                            collectSamples(9, 9);
+                            DecomposeBalls(9, 9);
                             break;
                         case 46:
-                            collectSamples(10, 9);
+                            DecomposeBalls(10, 9);
                             break;
                         case 47:
-                            collectSamples(11, 9);
+                            DecomposeBalls(11, 9);
                             break;
                         case 48:
-                            collectSamples(6, 10);
+                            DecomposeBalls(6, 10);
                             break;
                         case 49:
-                            collectSamples(7, 10);
+                            DecomposeBalls(7, 10);
                             break;
                         case 50:
-                            collectSamples(8, 10);
+                            DecomposeBalls(8, 10);
                             break;
                         case 51:
-                            collectSamples(9, 10);
+                            DecomposeBalls(9, 10);
                             break;
                         case 52:
-                            collectSamples(10, 10);
+                            DecomposeBalls(10, 10);
                             break;
                         case 53:
-                            collectSamples(11, 10);
+                            DecomposeBalls(11, 10);
                             break;
                         case 54:
-                            collectSamples(6, 10);
+                            DecomposeBalls(6, 10);
                             break;
                         case 55:
-                            collectSamples(7, 10);
+                            DecomposeBalls(7, 10);
                             break;
                         case 56:
-                            collectSamples(8, 10);
+                            DecomposeBalls(8, 10);
                             break;
                         case 57:
-                            collectSamples(9, 10);
+                            DecomposeBalls(9, 10);
                             break;
                         case 58:
-                            collectSamples(10, 10);
+                            DecomposeBalls(10, 10);
                             break;
                         case 59:
-                            collectSamples(11, 10);
+                            DecomposeBalls(11, 10);
                             break;
                         case 60:
-                            collectSamples(6, 11);
+                            DecomposeBalls(6, 11);
                             break;
                         case 61:
-                            collectSamples(7, 11);
+                            DecomposeBalls(7, 11);
                             break;
                         case 62:
-                            collectSamples(8, 11);
+                            DecomposeBalls(8, 11);
                             break;
                         case 63:
-                            collectSamples(9, 11);
+                            DecomposeBalls(9, 11);
                             break;
                         case 64:
-                            collectSamples(10, 11);
+                            DecomposeBalls(10, 11);
                             break;
                         case 65:
-                            collectSamples(11, 11);
+                            DecomposeBalls(11, 11);
                             break;
                         default:
-                            collectSamples(11, 11);
+                            DecomposeBalls(11, 11);
                             break;
                     }
                 }
@@ -719,65 +745,61 @@ public class MainCode : MonoBehaviour
                 break;
 
             case ActionsGame.StartGameYourSettings:
-                i = -1;
+                i = -1;//ни какую анимацию не запускать
                 break;
 
             case ActionsGame.ListLevelsTime:
-                СкрытьВсе();
-                parametersGame.свойУровень = false;
-
-                foreach (Transform child in ControlForLevels.transform)
-                {
-                    bool re = false;
-                    foreach (Transform child1 in child.transform)
-                    {
-                        foreach (var item in child1.GetComponentsInChildren<Image>())
-                        {
-                            re = listLevels.StateLevelTime[int.Parse(child.name)];
-                            child1.gameObject.SetActive(re);
-                        }
-                    }
-
-                    child.GetComponent<Button>().onClick.RemoveAllListeners();
-                    child.GetComponent<Button>().onClick.AddListener(() => { if (!re) { parametersGame.уровень = int.Parse(child.name); parametersGame.ShowTimer = true; transitionsBetweenWindows(ActionsGame.StartGame); } });
-                }
-
-                i = 2;
-                break;
-
             case ActionsGame.ListSimpleLevels:
-                СкрытьВсе();
-                parametersGame.свойУровень = false;
+                HideAll();
+
+                parametersGame.MyGame = false;
 
                 foreach (Transform child in ControlForLevels.transform)
                 {
-                    bool re = false;
-                    foreach (Transform child1 in child.transform)
+                    bool lockedLevel = false;
+                    foreach (Transform childLevel in child.transform)
                     {
-                        foreach (var item in child1.GetComponentsInChildren<Image>())
+                        foreach (var item in childLevel.GetComponentsInChildren<Image>())
                         {
-                            re = listLevels.StateLevelNormal[int.Parse(child.name)];
-                            child1.gameObject.SetActive(re);
+                            if (actionsGame == ActionsGame.ListSimpleLevels)
+                            {
+                                lockedLevel = listLevels.StateLevelNormal[int.Parse(child.name)];
+                            }
+                            else if (actionsGame == ActionsGame.ListLevelsTime)
+                            {
+                                lockedLevel = listLevels.StateLevelTime[int.Parse(child.name)];
+                            }
+                            
+                            childLevel.gameObject.SetActive(lockedLevel);
                         }
                     }
+
                     child.GetComponent<Button>().onClick.RemoveAllListeners();
-                    child.GetComponent<Button>().onClick.AddListener(() => { if (!re) { parametersGame.уровень = int.Parse(child.name); parametersGame.ShowTimer = false; transitionsBetweenWindows(ActionsGame.StartGame); } });
+
+                    if (actionsGame==ActionsGame.ListSimpleLevels)
+                    {
+                        child.GetComponent<Button>().onClick.AddListener(() => { if (!lockedLevel) { parametersGame.GameLevel = int.Parse(child.name); parametersGame.ShowTimer = false; transitionsBetweenWindows(ActionsGame.StartGame); } });
+                    }
+                    else if (actionsGame == ActionsGame.ListLevelsTime)
+                    {
+                        child.GetComponent<Button>().onClick.AddListener(() => { if (!lockedLevel) { parametersGame.GameLevel = int.Parse(child.name); parametersGame.ShowTimer = true; transitionsBetweenWindows(ActionsGame.StartGame); } });
+                    }
                 }
 
                 i = 2;
                 break;
 
             case ActionsGame.TrainingRound:
-                collectSamples(3, 3, true);
+                DecomposeBalls(3, 3, true);
                 break;
             case ActionsGame.CreateYourLevel:
             case ActionsGame.OpenSettings:
             case 0:
-                СкрытьВсе();
+                HideAll();
                 break;
         }
 
-        if (i>-1) { animator.SetInteger(nameof(ActionsGame), i); }
+        if (i > -1) { animator.SetInteger(nameof(ActionsGame), i); }
 
         //сохраняем только один экземпляр окна чтобы после 3 раундов(уровней) игр не жать 3 раза назад 
         if (actionHistory.Peek() != actionsGame && !(actionHistory.Peek() == ActionsGame.StartGameYourSettings && ActionsGame.StartGame == actionsGame)) { actionHistory.Push(actionsGame); }
@@ -788,437 +810,11 @@ public class MainCode : MonoBehaviour
         switch (actionsGame)
         {
             case ActionsGame.StartGame:
-                MessageVictory.SetActive(false);
-                MessageLosing.SetActive(false);
-
-                #region Задаем параметры игре
-                if (parametersGame.свойУровень)
-                {
-                    if (int.Parse(inputField1.text) > 0 || int.Parse(inputField2.text) > 0)
-                    {
-                        parametersGame.ShowTimer = true;
-                    }
-                    collectSamples(dropdown1.value + 2, dropdown2.value + 2, false, int.Parse(inputField1.text), int.Parse(inputField2.text));
-                }
-                else if (parametersGame.ShowTimer)
-                {
-                    switch (parametersGame.уровень + 1)
-                    {
-                        case 1:
-                            collectSamples(5, 2, false, 25, 45);
-                            break;
-                        case 2:
-                            collectSamples(6, 2, false, 25, 45);
-                            break;
-                        case 3:
-                            collectSamples(7, 2, false, 25, 45);
-                            break;
-                        case 4:
-                            collectSamples(8, 2, false, 25, 45);
-                            break;
-                        case 5:
-                            collectSamples(5, 3, false, 25, 45);
-                            break;
-                        case 6:
-                            collectSamples(6, 3, false, 25, 45);
-                            break;
-                        case 7:
-                            collectSamples(7, 3, false, 25, 45);
-                            break;
-                        case 8:
-                            collectSamples(8, 3, false, 25, 45);
-                            break;
-                        case 9:
-                            collectSamples(9, 3, false, 25, 45);
-                            break;
-                        case 10:
-                            collectSamples(5, 4, false, 25, 45);
-                            break;
-                        case 11:
-                            collectSamples(6, 4, false, 25, 45);
-                            break;
-                        case 12:
-                            collectSamples(7, 4, false, 25, 45);
-                            break;
-                        case 13:
-                            collectSamples(8, 4, false, 25, 45);
-                            break;
-                        case 14:
-                            collectSamples(9, 4, false, 25, 45);
-                            break;
-                        case 15:
-                            collectSamples(10, 4, false, 25, 45);
-                            break;
-                        case 16:
-                            collectSamples(5, 5, false, 25, 45);
-                            break;
-                        case 17:
-                            collectSamples(6, 5, false, 25, 45);
-                            break;
-                        case 18:
-                            collectSamples(7, 5, false, 25, 45);
-                            break;
-                        case 19:
-                            collectSamples(8, 5, false, 25, 45);
-                            break;
-                        case 20:
-                            collectSamples(9, 5, false, 25, 45);
-                            break;
-                        case 21:
-                            collectSamples(10, 5, false, 25, 45);
-                            break;
-                        case 22:
-                            collectSamples(11, 5, false, 25, 45);
-                            break;
-                        case 23:
-                            collectSamples(5, 6, false, 25, 45);
-                            break;
-                        case 24:
-                            collectSamples(6, 6, false, 25, 45);
-                            break;
-                        case 25:
-                            collectSamples(7, 6, false, 25, 45);
-                            break;
-                        case 26:
-                            collectSamples(8, 6, false, 25, 45);
-                            break;
-                        case 27:
-                            collectSamples(9, 6, false, 25, 45);
-                            break;
-                        case 28:
-                            collectSamples(10, 6, false, 25, 45);
-                            break;
-                        case 29:
-                            collectSamples(11, 6, false, 25, 45);
-                            break;
-                        case 30:
-                            collectSamples(6, 7, false, 25, 45);
-                            break;
-                        case 31:
-                            collectSamples(7, 7, false, 25, 45);
-                            break;
-                        case 32:
-                            collectSamples(8, 7, false, 25, 45);
-                            break;
-                        case 33:
-                            collectSamples(9, 7, false, 25, 45);
-                            break;
-                        case 34:
-                            collectSamples(10, 7, false, 25, 45);
-                            break;
-                        case 35:
-                            collectSamples(11, 7, false, 25, 45);
-                            break;
-                        case 36:
-                            collectSamples(6, 8, false, 25, 45);
-                            break;
-                        case 37:
-                            collectSamples(7, 8, false, 25, 45);
-                            break;
-                        case 38:
-                            collectSamples(8, 8, false, 25, 45);
-                            break;
-                        case 39:
-                            collectSamples(9, 8, false, 25, 45);
-                            break;
-                        case 40:
-                            collectSamples(10, 8, false, 25, 45);
-                            break;
-                        case 41:
-                            collectSamples(11, 8, false, 25, 45);
-                            break;
-                        case 42:
-                            collectSamples(6, 9, false, 25, 45);
-                            break;
-                        case 43:
-                            collectSamples(7, 9, false, 25, 45);
-                            break;
-                        case 44:
-                            collectSamples(8, 9, false, 25, 45);
-                            break;
-                        case 45:
-                            collectSamples(9, 9, false, 25, 45);
-                            break;
-                        case 46:
-                            collectSamples(10, 9, false, 25, 45);
-                            break;
-                        case 47:
-                            collectSamples(11, 9, false, 25, 45);
-                            break;
-                        case 48:
-                            collectSamples(6, 10, false, 25, 45);
-                            break;
-                        case 49:
-                            collectSamples(7, 10, false, 25, 45);
-                            break;
-                        case 50:
-                            collectSamples(8, 10, false, 25, 45);
-                            break;
-                        case 51:
-                            collectSamples(9, 10, false, 25, 45);
-                            break;
-                        case 52:
-                            collectSamples(10, 10, false, 25, 45);
-                            break;
-                        case 53:
-                            collectSamples(11, 10, false, 25, 45);
-                            break;
-                        case 54:
-                            collectSamples(6, 10, false, 25, 45);
-                            break;
-                        case 55:
-                            collectSamples(7, 10, false, 25, 45);
-                            break;
-                        case 56:
-                            collectSamples(8, 10, false, 25, 45);
-                            break;
-                        case 57:
-                            collectSamples(9, 10, false, 25, 45);
-                            break;
-                        case 58:
-                            collectSamples(10, 10, false, 25, 45);
-                            break;
-                        case 59:
-                            collectSamples(11, 10, false, 25, 45);
-                            break;
-                        case 60:
-                            collectSamples(6, 11, false, 25, 45);
-                            break;
-                        case 61:
-                            collectSamples(7, 11, false, 25, 45);
-                            break;
-                        case 62:
-                            collectSamples(8, 11, false, 25, 45);
-                            break;
-                        case 63:
-                            collectSamples(9, 11, false, 25, 45);
-                            break;
-                        case 64:
-                            collectSamples(10, 11, false, 25, 45);
-                            break;
-                        case 65:
-                            collectSamples(11, 11, false, 25, 45);
-                            break;
-                        default:
-                            collectSamples(11, 11, false, 25, 45);
-                            break;
-                    }
-
-                }
-                else
-                {
-                    switch (parametersGame.уровень + 1)
-                    {
-                        case 1:
-                            collectSamples(5, 2);
-                            break;
-                        case 2:
-                            collectSamples(6, 2);
-                            break;
-                        case 3:
-                            collectSamples(7, 2);
-                            break;
-                        case 4:
-                            collectSamples(8, 2);
-                            break;
-                        case 5:
-                            collectSamples(5, 3);
-                            break;
-                        case 6:
-                            collectSamples(6, 3);
-                            break;
-                        case 7:
-                            collectSamples(7, 3);
-                            break;
-                        case 8:
-                            collectSamples(8, 3);
-                            break;
-                        case 9:
-                            collectSamples(9, 3);
-                            break;
-                        case 10:
-                            collectSamples(5, 4);
-                            break;
-                        case 11:
-                            collectSamples(6, 4);
-                            break;
-                        case 12:
-                            collectSamples(7, 4);
-                            break;
-                        case 13:
-                            collectSamples(8, 4);
-                            break;
-                        case 14:
-                            collectSamples(9, 4);
-                            break;
-                        case 15:
-                            collectSamples(10, 4);
-                            break;
-                        case 16:
-                            collectSamples(5, 5);
-                            break;
-                        case 17:
-                            collectSamples(6, 5);
-                            break;
-                        case 18:
-                            collectSamples(7, 5);
-                            break;
-                        case 19:
-                            collectSamples(8, 5);
-                            break;
-                        case 20:
-                            collectSamples(9, 5);
-                            break;
-                        case 21:
-                            collectSamples(10, 5);
-                            break;
-                        case 22:
-                            collectSamples(11, 5);
-                            break;
-                        case 23:
-                            collectSamples(5, 6);
-                            break;
-                        case 24:
-                            collectSamples(6, 6);
-                            break;
-                        case 25:
-                            collectSamples(7, 6);
-                            break;
-                        case 26:
-                            collectSamples(8, 6);
-                            break;
-                        case 27:
-                            collectSamples(9, 6);
-                            break;
-                        case 28:
-                            collectSamples(10, 6);
-                            break;
-                        case 29:
-                            collectSamples(11, 6);
-                            break;
-                        case 30:
-                            collectSamples(6, 7);
-                            break;
-                        case 31:
-                            collectSamples(7, 7);
-                            break;
-                        case 32:
-                            collectSamples(8, 7);
-                            break;
-                        case 33:
-                            collectSamples(9, 7);
-                            break;
-                        case 34:
-                            collectSamples(10, 7);
-                            break;
-                        case 35:
-                            collectSamples(11, 7);
-                            break;
-                        case 36:
-                            collectSamples(6, 8);
-                            break;
-                        case 37:
-                            collectSamples(7, 8);
-                            break;
-                        case 38:
-                            collectSamples(8, 8);
-                            break;
-                        case 39:
-                            collectSamples(9, 8);
-                            break;
-                        case 40:
-                            collectSamples(10, 8);
-                            break;
-                        case 41:
-                            collectSamples(11, 8);
-                            break;
-                        case 42:
-                            collectSamples(6, 9);
-                            break;
-                        case 43:
-                            collectSamples(7, 9);
-                            break;
-                        case 44:
-                            collectSamples(8, 9);
-                            break;
-                        case 45:
-                            collectSamples(9, 9);
-                            break;
-                        case 46:
-                            collectSamples(10, 9);
-                            break;
-                        case 47:
-                            collectSamples(11, 9);
-                            break;
-                        case 48:
-                            collectSamples(6, 10);
-                            break;
-                        case 49:
-                            collectSamples(7, 10);
-                            break;
-                        case 50:
-                            collectSamples(8, 10);
-                            break;
-                        case 51:
-                            collectSamples(9, 10);
-                            break;
-                        case 52:
-                            collectSamples(10, 10);
-                            break;
-                        case 53:
-                            collectSamples(11, 10);
-                            break;
-                        case 54:
-                            collectSamples(6, 10);
-                            break;
-                        case 55:
-                            collectSamples(7, 10);
-                            break;
-                        case 56:
-                            collectSamples(8, 10);
-                            break;
-                        case 57:
-                            collectSamples(9, 10);
-                            break;
-                        case 58:
-                            collectSamples(10, 10);
-                            break;
-                        case 59:
-                            collectSamples(11, 10);
-                            break;
-                        case 60:
-                            collectSamples(6, 11);
-                            break;
-                        case 61:
-                            collectSamples(7, 11);
-                            break;
-                        case 62:
-                            collectSamples(8, 11);
-                            break;
-                        case 63:
-                            collectSamples(9, 11);
-                            break;
-                        case 64:
-                            collectSamples(10, 11);
-                            break;
-                        case 65:
-                            collectSamples(11, 11);
-                            break;
-                        default:
-                            collectSamples(11, 11);
-                            break;
-                    }
-                }
-                #endregion
-                i = 3;
-
-
                 if (parametersGame.ShowTimer)
                 {
                     GameTimer.gameObject.SetActive(true);
-                    timeLeft = 0;
+                    muchTimePassed = 0;
                 }
-
 
                 parametersGame.StateGame = StateGame.Preparation;
                 parametersGame.StageTraining = 0;
@@ -1230,23 +826,27 @@ public class MainCode : MonoBehaviour
                 break;
 
             case ActionsGame.StartGameYourSettings:
-                parametersGame.свойУровень = true;
+                parametersGame.MyGame = true;
                 parametersGame.ShowTimer = false;
-                parametersGame.уровень = 0;
+                parametersGame.GameLevel = 0;
                 transitionsBetweenWindows(ActionsGame.StartGame);
                 i = -1;
                 break;
         }
     }
 
-
-    //количество шариков максимум 11, количество цветов максимум 11 ,
-    void collectSamples(int totalBalls, int totalColors, bool training = false, float МахЗапоминать = 0, float МахИграть = 0)
+    /// <summary>
+    /// Подготовка шариков которые надо запомнить
+    /// </summary>
+    /// <param name="totalBalls">Количество шариков (max 11)</param>
+    /// <param name="totalColors">количество цветов (max 11)</param>
+    /// <param name="training">true - обучение, false - остальные уровни</param>
+    /// <param name="timeRemember">Время на запоминание</param>
+    /// <param name="timePlay">Время на игру</param>
+    void DecomposeBalls(int totalBalls, int totalColors, bool training = false, float timeRemember = 0, float timePlay = 0)
     {
-        // сложность = МахЗапоминать > 0 || МахИграть > 0;
-        timeЗапоминать = GameTimer.maxValue = МахЗапоминать;
-        timeMax = МахИграть;
-
+        this.timeRemember = GameTimer.maxValue = timeRemember;
+        this.timePlay = timePlay;
 
         //Количество цветов если меньше 1 или больше 11 меняю на 11
         if (totalColors > numberColors || totalColors < 1) { totalColors = numberColors; }
@@ -1255,6 +855,7 @@ public class MainCode : MonoBehaviour
         if (totalBalls > numberBalls || totalBalls < 1) { totalColors = numberBalls; }
         parametersGame.TotalBalls = totalBalls;
 
+        //Раскладываем шарики которые надо запомнить, для обучение по шаблону, а для остальных уровней рандомно
         for (int i = 0; i < numberBalls; i++)
         {
             if (training)
@@ -1263,6 +864,7 @@ public class MainCode : MonoBehaviour
                 {
                     case 0:
                         Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/1");
+                        Training1.SetActive(true);
                         break;
                     case 1:
                         Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/2");
@@ -1274,11 +876,10 @@ public class MainCode : MonoBehaviour
                         Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/0");
                         break;
                 }
-                Training1.SetActive(true);
             }
             else
             {
-                if (i >= totalBalls)
+                if (i >= totalBalls)//Оставшиеся заполняем ямками под шарик
                 {
                     Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/0");
                 }
@@ -1304,39 +905,53 @@ public class MainCode : MonoBehaviour
         }
     }
 
-
-    //Закрыть шарики доской
-    void Gecr()
+    /// <summary>
+    /// Закрыть шарики доской
+    /// </summary>
+    void CloseBoard()
     {
+        //Миняем статус игры
         parametersGame.StateGame = StateGame.Started;
+        
+        //Если игра на время то задаем значение через сколько раунд закончится
         if (parametersGame.ShowTimer)
         {
-            timeLeft = GameTimer.maxValue = timeMax;
+            muchTimePassed = GameTimer.maxValue = timePlay;
         }
+        
+        //Запускаем анимацию закрытия крышки
         animator.SetInteger(nameof(ActionsGame), 4);
     }
 
-    public void УстановитьШарик(GameObject gameObject)
+    /// <summary>
+    /// Перемещаем шарик
+    /// </summary>
+    /// <param name="gameObject">шарик который надо переместить</param>
+    public void MoveBall(GameObject gameObject)
     {
-        if (parametersGame.StateGame == StateGame.Preparation) { Gecr(); }
+        //если игра еще не запустилась после нажатия запускаем её
+        if (parametersGame.StateGame == StateGame.Preparation) { CloseBoard(); }
+
+        //Дальше обрабатываем только если игра начата
         if (parametersGame.StateGame == StateGame.Started)
         {
             PlayClick();
 
             if (parametersGame.StageTraining <= 0)
             {
+                //Пробегаем по всем ячейкам и в первую пустую ячейку ложим шарик, если все заполнены то завершаем игру
                 for (int i = 0; i < parametersGame.TotalBalls; i++)
                 {
                     if (WorkingBalls[i].GetComponent<Image>().sprite == Resources.Load<Sprite>("Image/Balloons/0"))
                     {
                         WorkingBalls[i].GetComponent<Image>().sprite = gameObject.GetComponent<Image>().sprite;
 
-                        if (i == parametersGame.TotalBalls - 1) { ПодвестиИтог(); }
+                        if (i == parametersGame.TotalBalls - 1) { GameOwer(); }
 
                         break;
                     }
                 }
-            }
+            }//Дальше проверки на обучающие уровни
             else if (parametersGame.StageTraining == 1 && WorkingBalls[0].GetComponent<Image>().sprite == Resources.Load<Sprite>("Image/Balloons/0") && gameObject.GetComponent<Image>().sprite == Resources.Load<Sprite>("Image/Balloons/1"))
             {
                 Training1.SetActive(false);
@@ -1353,7 +968,7 @@ public class MainCode : MonoBehaviour
             }
             else if (parametersGame.StageTraining == 4 && WorkingBalls[2].GetComponent<Image>().sprite == Resources.Load<Sprite>("Image/Balloons/0") && gameObject.GetComponent<Image>().sprite == Resources.Load<Sprite>("Image/Balloons/2"))
             {
-                Training4.SetActive(false);               
+                Training4.SetActive(false);
                 WorkingBalls[1].GetComponent<Image>().sprite = gameObject.GetComponent<Image>().sprite;
                 parametersGame.StageTraining = 5;
                 Training1.SetActive(true);
@@ -1362,13 +977,16 @@ public class MainCode : MonoBehaviour
             {
                 Training1.SetActive(false);
                 WorkingBalls[2].GetComponent<Image>().sprite = gameObject.GetComponent<Image>().sprite;
-                parametersGame.StageTraining = 0;
-                ПодвестиИтог();
+                GameOwer();
             }
         }
     }
 
-    public void УбратьШарик(GameObject gameObject)
+    /// <summary>
+    /// Убераем шарик который выложили по ошибке
+    /// </summary>
+    /// <param name="gameObject">Шарик который надо удалить</param>
+    public void RemoveBall(GameObject gameObject)
     {
         if (parametersGame.StateGame == StateGame.Started)
         {
@@ -1378,7 +996,7 @@ public class MainCode : MonoBehaviour
             {
                 gameObject.GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/0");
             }
-            else if (parametersGame.StageTraining == 3)
+            else if (parametersGame.StageTraining == 3)//Во время обучения удоляем второй шарик
             {
                 Training3.SetActive(false);
                 WorkingBalls[1].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/0");
@@ -1388,40 +1006,47 @@ public class MainCode : MonoBehaviour
         }
     }
 
-    void ПодвестиИтог()
+    /// <summary>
+    /// Заканчиваем игру и вычисляем победа или проигрыш
+    /// </summary>
+    void GameOwer()
     {
-        bool Итого = true;
+        bool victory = true;
+
+        //Вычесляем победил или проиграл
         for (int i = 0; i < parametersGame.TotalBalls; i++)
         {
             if (Samples[i].GetComponent<Image>().sprite != WorkingBalls[i].GetComponent<Image>().sprite)
             {
-                Итого = false;
+                victory = false;
                 break;
             }
         }
 
+        //меняем статус игры
         parametersGame.StateGame = StateGame.GameOver;
+
+        //запускаем анимацию открытия доски
         animator.SetInteger(nameof(ActionsGame), 3);
 
-        if (Итого)
+        //Оповещаем о победе или о проигрыше
+        if (victory)
         {
-            if (parametersGame.уровень > -1)
+            //Если уровень не игроком созданый то открываем следующий
+            if (!parametersGame.MyGame)
             {
-                if (parametersGame.ShowTimer)
+                if (parametersGame.ShowTimer)//Уровень на время
                 {
-
-                    if (listLevels.StateLevelTime.Length > parametersGame.уровень)
+                    if (listLevels.StateLevelTime.Length > parametersGame.GameLevel+1)
                     {
-                        listLevels.StateLevelTime[parametersGame.уровень + 1] = false;
+                        listLevels.StateLevelTime[parametersGame.GameLevel + 1] = false;
                     }
-
-
                 }
-                else if (!parametersGame.ShowTimer)
+                else if (!parametersGame.ShowTimer)//обычный уровень
                 {
-                    if (listLevels.StateLevelNormal.Length > parametersGame.уровень)
+                    if (listLevels.StateLevelNormal.Length > parametersGame.GameLevel+1)
                     {
-                        listLevels.StateLevelNormal[parametersGame.уровень + 1] = false;
+                        listLevels.StateLevelNormal[parametersGame.GameLevel + 1] = false;
                     }
                 }
 
@@ -1430,59 +1055,55 @@ public class MainCode : MonoBehaviour
 
             foreach (Transform child in MessageVictory.transform)
             {
-                var ffd = child.GetComponent<Button>();
-                if (ffd != null)
+                var button = child.GetComponent<Button>();
+                if (button != null)
                 {
-                    ffd.onClick.RemoveAllListeners();
-                    if (parametersGame.StageTraining > 0)
+                    button.onClick.RemoveAllListeners();
+                    if (parametersGame.StageTraining > 0)//После обучения переходим в окно с обычными уровнями
                     {
-                        actionHistory.Pop();
-                        ffd.onClick.AddListener(() => { transitionsBetweenWindows(ActionsGame.ListSimpleLevels); });
+                        button.onClick.AddListener(() => { actionHistory.Pop(); transitionsBetweenWindows(ActionsGame.ListSimpleLevels); });
                     }
                     else
                     {
-                        ffd.onClick.AddListener(() => { parametersGame.уровень = parametersGame.уровень + 1; transitionsBetweenWindows(ActionsGame.StartGame); });
+                        button.onClick.AddListener(() => { parametersGame.GameLevel = parametersGame.GameLevel + 1; transitionsBetweenWindows(ActionsGame.StartGame); });
                     }
                 }
-
             }
+
             MessageVictory.SetActive(true);
         }
         else
         {
             foreach (Transform child in MessageLosing.transform)
             {
-                var ffd = child.GetComponent<Button>();
-                if (ffd!=null)
+                var button = child.GetComponent<Button>();
+                if (button != null)
                 {
-                    ffd.onClick.RemoveAllListeners();
-                    ffd.onClick.AddListener(() => { transitionsBetweenWindows(ActionsGame.StartGame); });
+                    button.onClick.RemoveAllListeners();
+                    button.onClick.AddListener(() => { transitionsBetweenWindows(ActionsGame.StartGame); });
                 }
 
             }
+
             MessageLosing.SetActive(true);
         }
     }
 
-    //Скрыть все игровые кнопки
-    void СкрытьВсе()
+    /// <summary>
+    /// Скрыть все что связано с игрой
+    /// </summary>
+    void HideAll()
     {
         parametersGame.StateGame = StateGame.GameOver;
 
-        foreach (var item in Samples)
-        {
-            item.SetActive(false);
-        }
-        foreach (var item in WorkingBalls)
-        {
-            item.SetActive(false);
-        }
-        foreach (var item in SamplesBalls)
-        {
-            item.SetActive(false);
-        }
+        foreach (var item in Samples) { item.SetActive(false); }
+
+        foreach (var item in WorkingBalls) { item.SetActive(false); }
+
+        foreach (var item in SamplesBalls) { item.SetActive(false); }
 
         MessageVictory.SetActive(false);
+
         MessageLosing.SetActive(false);
 
         GameTimer.gameObject.SetActive(false);
@@ -1553,7 +1174,7 @@ public class MainCode : MonoBehaviour
     /// </summary>
     public void ChangeStateCleekd()
     {
-        PlayCleekdMusic(!listLevels.PlayEffect);
+        IconCleekdMusic(!listLevels.PlayEffect);
 
         PlayClick();
 
@@ -1561,10 +1182,10 @@ public class MainCode : MonoBehaviour
     }
 
     /// <summary>
-    /// Воспроизводить звук кликов
+    /// Меняем отоброжение колонки для клика
     /// </summary>
     /// <param name="turn"> true - воспроизвести фоновую музыку, false - остановить фоновую музыку</param>
-    void PlayCleekdMusic(bool turn = true)
+    void IconCleekdMusic(bool turn = true)
     {
         if (turn)
         {

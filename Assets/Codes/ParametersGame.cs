@@ -21,13 +21,15 @@ public class ParametersGame
     /// <summary>
     /// Уровень текущей игры
     /// </summary>
-    public int уровень = -1;
+    public int GameLevel = -1;
 
     /// <summary>
     /// Показывать таймер. true-запущен уровень на время, false - запущен обычный уровень 
     /// </summary>
     public bool ShowTimer;
 
-
-    public bool свойУровень;
+    /// <summary>
+    /// trye - игра создана игроком, false - стандартные уровни от разработчика
+    /// </summary>
+    public bool MyGame;
 }
