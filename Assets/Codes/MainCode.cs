@@ -26,6 +26,11 @@ public class MainCode : MonoBehaviour
     public GameObject BackButton;
 
     /// <summary>
+    /// Кнопка расширить окно
+    /// </summary>
+    public GameObject ExpandWindow;
+
+    /// <summary>
     /// Анимация перемещения окошек
     /// </summary>
     Animator animator;
@@ -226,6 +231,12 @@ public class MainCode : MonoBehaviour
                 }
             }
         }
+        //Отображаем кнопку раскрыть на весь экран на веб клиентах
+#if UNITY_WEBGL || UNITY_FACEBOOK
+        ExpandWindow.SetActive(true);
+#else
+        ExpandWindow.SetActive(false);
+#endif
     }
 
 
@@ -1117,7 +1128,9 @@ public class MainCode : MonoBehaviour
 
 
     #region Настройки игры
-    //Открываем окно настроек
+    /// <summary>
+    /// Открываем окно настроек
+    /// </summary>
     public void OpenSettings()
     {
         //Можно было бы скрыть кнопку настроек. Но лень
@@ -1199,14 +1212,15 @@ public class MainCode : MonoBehaviour
         listLevels.PlayEffect = turn;
     }
 
-
     /// <summary>
     /// Сохраняем в PlayerPrefs настройки игры
     /// </summary>
     void SaveSeting() { UnityEngine.PlayerPrefs.SetString("Save", JsonUtility.ToJson(listLevels)); }
     #endregion
 
-    //Открыть предыдущее окно
+    /// <summary>
+    /// Открыть предыдущее окно
+    /// </summary>
     public void ReturnBack()
     {
         //Удоляем текущее окно из списка и открываем предыдущее окно
@@ -1216,17 +1230,11 @@ public class MainCode : MonoBehaviour
         //Если в масиве меньше 2 значений значит мы на главной странице, скрываем кнопку назад
         if (actionHistory.Count < 2) { BackButton.SetActive(false); }
     }
-}
 
-/*сохранение
-#if UNITY_ANDROID && !UNITY_EDITOR
-    private void OnApplicationPause(bool pause)
+#if UNITY_WEBGL || UNITY_FACEBOOK
+    public void FullScreen()
     {
-        PlayerPrefs.SetString("Save", JsonUtility.ToJson(listLevels));
-    }    
+        Screen.fullScreen = !Screen.fullScreen;
+    }
 #endif
-
-    private void OnApplicationQuit()
-    {
-        PlayerPrefs.SetString("Save", JsonUtility.ToJson(listLevels));
-    }*/
+}
