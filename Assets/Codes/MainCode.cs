@@ -1,7 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
+#if UNITY_WEBGL && !UNITY_EDITOR
+using System.Runtime.InteropServices;
+#endif
 public class MainCode : MonoBehaviour
 {
     #region Переменные
@@ -821,10 +825,14 @@ public class MainCode : MonoBehaviour
         switch (actionsGame)
         {
             case ActionsGame.StartGame:
-                if (parametersGame.ShowTimer)
+                if (parametersGame.ShowTimer && timeRemember>0)
                 {
                     GameTimer.gameObject.SetActive(true);
                     muchTimePassed = 0;
+                }
+                else
+                {
+                    GameTimer.gameObject.SetActive(false);
                 }
 
                 parametersGame.StateGame = StateGame.Preparation;
@@ -896,7 +904,7 @@ public class MainCode : MonoBehaviour
                 }
                 else
                 {
-                    Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/" + Random.Range(1, totalColors + 1));
+                    Samples[i].GetComponent<Image>().sprite = Resources.Load<Sprite>("Image/Balloons/" + UnityEngine.Random.Range(1, totalColors + 1));
                 }
             }
             Samples[i].SetActive(true);
@@ -925,10 +933,16 @@ public class MainCode : MonoBehaviour
         parametersGame.StateGame = StateGame.Started;
         
         //Если игра на время то задаем значение через сколько раунд закончится
-        if (parametersGame.ShowTimer)
+        if (parametersGame.ShowTimer && timePlay>0)
         {
             muchTimePassed = GameTimer.maxValue = timePlay;
+            GameTimer.gameObject.SetActive(true);
         }
+        else
+        {
+            GameTimer.gameObject.SetActive(false);
+        }
+
         
         //Запускаем анимацию закрытия крышки
         animator.SetInteger(nameof(ActionsGame), 4);
@@ -1231,10 +1245,22 @@ public class MainCode : MonoBehaviour
         if (actionHistory.Count < 2) { BackButton.SetActive(false); }
     }
 
-#if UNITY_WEBGL || UNITY_FACEBOOK
+    /*#if UNITY_WEBGL || UNITY_FACEBOOK
+        public void FullScreen()
+        {
+            Screen.fullScreen = !Screen.fullScreen;
+        }
+    #endif*/
+        public Text yt;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void GoFullscreen();
+ 
     public void FullScreen()
     {
-        Screen.fullScreen = !Screen.fullScreen;
+         GoFullscreen();
     }
+#else
+    public void FullScreen() { }
 #endif
 }
