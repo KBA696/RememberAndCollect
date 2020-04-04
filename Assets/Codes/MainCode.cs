@@ -35,6 +35,11 @@ public class MainCode : MonoBehaviour
     public GameObject ExpandWindow;
 
     /// <summary>
+    /// Кнопка расширить окно
+    /// </summary>
+    public GameObject NarrowWindow;
+
+    /// <summary>
     /// Анимация перемещения окошек
     /// </summary>
     Animator animator;
@@ -1251,16 +1256,32 @@ public class MainCode : MonoBehaviour
             Screen.fullScreen = !Screen.fullScreen;
         }
     #endif*/
-        public Text yt;
+
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern void GoFullscreen();
- 
+
     public void FullScreen()
     {
-         GoFullscreen();
+        GoFullscreen();
+
+        if(Screen.fullScreen)
+        {
+            ExpandWindow.SetActive(true);
+            NarrowWindow.SetActive(false);
+        }
+        else
+        {   
+            ExpandWindow.SetActive(false);
+            NarrowWindow.SetActive(true);    
+        }
     }
 #else
     public void FullScreen() { }
 #endif
+
+    public void OpenPrivacyPolicy() 
+    {
+        Application.OpenURL("https://kba696.github.io/RememberAndCollect/PrivacyPolicy.html");
+    }
 }
